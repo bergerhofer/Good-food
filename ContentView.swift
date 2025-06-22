@@ -45,7 +45,8 @@ struct DateNavigationView: View {
             HStack {
                 Button(action: {
                     withAnimation(.easeInOut(duration: 0.3)) {
-                        selectedDate = Calendar.current.date(byAdding: .day, value: -1, to: selectedDate) ?? selectedDate
+                        let newDate = Calendar.current.date(byAdding: .day, value: -1, to: selectedDate) ?? selectedDate
+                        selectedDate = newDate
                     }
                 }) {
                     Image(systemName: "chevron.left")
@@ -61,6 +62,7 @@ struct DateNavigationView: View {
                         .fontWeight(.semibold)
                         .foregroundColor(.primary)
                     
+                    // Today Badge
                     if Calendar.current.isDateInToday(selectedDate) {
                         Text("TODAY")
                             .font(.caption)
@@ -77,7 +79,8 @@ struct DateNavigationView: View {
                 
                 Button(action: {
                     withAnimation(.easeInOut(duration: 0.3)) {
-                        selectedDate = Calendar.current.date(byAdding: .day, value: 1, to: selectedDate) ?? selectedDate
+                        let newDate = Calendar.current.date(byAdding: .day, value: 1, to: selectedDate) ?? selectedDate
+                        selectedDate = newDate
                     }
                 }) {
                     Image(systemName: "chevron.right")
@@ -91,7 +94,8 @@ struct DateNavigationView: View {
             if !Calendar.current.isDateInToday(selectedDate) {
                 Button("Today") {
                     withAnimation(.easeInOut(duration: 0.3)) {
-                        selectedDate = Date()
+                        let today = Date()
+                        selectedDate = today
                     }
                 }
                 .buttonStyle(QuickNavButtonStyle(isActive: false))

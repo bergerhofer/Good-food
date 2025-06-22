@@ -28,6 +28,9 @@ struct FoodTracker: View {
                     proteinCount += 1
                     proteinChecked.append(false)
                     saveData()
+                },
+                onBoxToggle: {
+                    saveData()
                 }
             )
             
@@ -40,6 +43,9 @@ struct FoodTracker: View {
                 onAdd: {
                     fruitsCount += 1
                     fruitsChecked.append(false)
+                    saveData()
+                },
+                onBoxToggle: {
                     saveData()
                 }
             )
@@ -54,6 +60,9 @@ struct FoodTracker: View {
                     vegetablesCount += 1
                     vegetablesChecked.append(false)
                     saveData()
+                },
+                onBoxToggle: {
+                    saveData()
                 }
             )
             
@@ -66,6 +75,9 @@ struct FoodTracker: View {
                 onAdd: {
                     carbsCount += 1
                     carbsChecked.append(false)
+                    saveData()
+                },
+                onBoxToggle: {
                     saveData()
                 }
             )
@@ -80,21 +92,25 @@ struct FoodTracker: View {
                     dairyCount += 1
                     dairyChecked.append(false)
                     saveData()
+                },
+                onBoxToggle: {
+                    saveData()
                 }
             )
         }
         .onAppear {
             loadData()
         }
-        .onChange(of: selectedDate) { _ in
-            loadData()
+        .onChange(of: selectedDate) { newDate in
+            loadDataForDate(newDate)
         }
     }
     
     // MARK: - Data Persistence
     private func saveData() {
+        let normalizedDate = FoodTrackerDataManager.shared.normalizeDate(selectedDate)
         let data = FoodTrackerData(
-            date: selectedDate,
+            date: normalizedDate,
             proteinCount: proteinCount,
             fruitsCount: fruitsCount,
             vegetablesCount: vegetablesCount,
@@ -111,7 +127,13 @@ struct FoodTracker: View {
     }
     
     private func loadData() {
-        if let data = FoodTrackerDataManager.shared.loadData(for: selectedDate) {
+        loadDataForDate(selectedDate)
+    }
+    
+    private func loadDataForDate(_ date: Date) {
+        let normalizedDate = FoodTrackerDataManager.shared.normalizeDate(date)
+        
+        if let data = FoodTrackerDataManager.shared.loadData(for: normalizedDate) {
             proteinCount = data.proteinCount
             fruitsCount = data.fruitsCount
             vegetablesCount = data.vegetablesCount
@@ -145,6 +167,7 @@ struct FoodCategorySection: View {
     @Binding var checkedItems: [Bool]
     let defaultCount: Int
     let onAdd: () -> Void
+    let onBoxToggle: () -> Void
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -163,6 +186,7 @@ struct FoodCategorySection: View {
                             set: { newValue in
                                 if index < checkedItems.count {
                                     checkedItems[index] = newValue
+                                    onBoxToggle()
                                 }
                             }
                         ),
@@ -260,28 +284,62 @@ class FoodTrackerDataManager: ObservableObject {
     static let shared = FoodTrackerDataManager()
     
     private let userDefaults = UserDefaults.standard
-    private let dateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter
-    }()
+    private let calendar = Calendar.current
     
     private init() {}
     
+    // Normalize date to start of day to avoid time zone issues
+    func normalizeDate(_ date: Date) -> Date {
+        let components = calendar.dateComponents([.year, .month, .day], from: date)
+        return calendar.date(from: components) ?? date
+    }
+    
+    func getDateKey(_ date: Date) -> String {
+        let normalizedDate = normalizeDate(date)
+        return formatDateKey(normalizedDate)
+    }
+    
     func saveData(_ data: FoodTrackerData) {
-        let key = "foodTracker_\(dateFormatter.string(from: data.date))"
-        if let encoded = try? JSONEncoder().encode(data) {
+        let normalizedDate = normalizeDate(data.date)
+        let key = "foodTracker_\(formatDateKey(normalizedDate))"
+        
+        // Create new data with normalized date
+        let normalizedData = FoodTrackerData(
+            date: normalizedDate,
+            proteinCount: data.proteinCount,
+            fruitsCount: data.fruitsCount,
+            vegetablesCount: data.vegetablesCount,
+            carbsCount: data.carbsCount,
+            dairyCount: data.dairyCount,
+            proteinChecked: data.proteinChecked,
+            fruitsChecked: data.fruitsChecked,
+            vegetablesChecked: data.vegetablesChecked,
+            carbsChecked: data.carbsChecked,
+            dairyChecked: data.dairyChecked
+        )
+        
+        if let encoded = try? JSONEncoder().encode(normalizedData) {
             userDefaults.set(encoded, forKey: key)
+            userDefaults.synchronize()
         }
     }
     
     func loadData(for date: Date) -> FoodTrackerData? {
-        let key = "foodTracker_\(dateFormatter.string(from: date))"
+        let normalizedDate = normalizeDate(date)
+        let key = "foodTracker_\(formatDateKey(normalizedDate))"
+        
         guard let data = userDefaults.data(forKey: key),
               let decoded = try? JSONDecoder().decode(FoodTrackerData.self, from: data) else {
             return nil
         }
         return decoded
+    }
+    
+    private func formatDateKey(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.timeZone = TimeZone.current
+        return formatter.string(from: date)
     }
 }
 
